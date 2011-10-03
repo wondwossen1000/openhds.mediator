@@ -1,4 +1,4 @@
-package edu.usm.roberge;
+package edu.usm.roberge.request;
 
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -7,11 +7,11 @@ import org.springframework.web.client.RestTemplate;
 /**
  * Request to register any errors in OpenHDS
  */
-public class ErrorRequest {
+public class AuditRequest {
 
 	private final DeathEventRequest req;
 
-	public ErrorRequest(DeathEventRequest req) {
+	public AuditRequest(DeathEventRequest req) {
 		this.req = req;
 	}
 

@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import edu.usm.roberge.DeathEventRequest;
 import edu.usm.roberge.DeathRegistration;
-import edu.usm.roberge.ErrorRequest;
 import edu.usm.roberge.converters.DeathConverter;
+import edu.usm.roberge.request.AuditRequest;
+import edu.usm.roberge.request.DeathEventRequest;
 
 /**
  * Receives the JSON payload from ODK Aggregate
@@ -40,7 +40,7 @@ public class JsonReceiver {
 		for(DeathRegistration event : deathEvents) {
 			DeathEventRequest req = new DeathEventRequest(event);
 			req.sendRequest();
-			ErrorRequest errReq = new ErrorRequest(req);
+			AuditRequest errReq = new AuditRequest(req);
 			errReq.sendRequest();
 		}
 		

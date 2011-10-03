@@ -1,4 +1,4 @@
-package edu.usm.roberge;
+package edu.usm.roberge.request;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+
+import edu.usm.roberge.DeathRegistration;
 
 public class DeathEventRequest {
 
