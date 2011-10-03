@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import edu.usm.roberge.DeathRegistration;
+import edu.usm.roberge.DeathRegistrationEvent;
 
 /**
  * Converts a JSON encoded Death registration event from ODK
@@ -13,8 +13,8 @@ public class DeathConverter {
 
 	private final Map<String, String> mappings = new HashMap<String, String>();
 	
-	public DeathRegistration convertToXml(Map<String, String> jsonObject) {
-		DeathRegistration deathRegistration = new DeathRegistration();
+	public DeathRegistrationEvent convertToXml(Map<String, String> jsonObject) {
+		DeathRegistrationEvent deathRegistration = new DeathRegistrationEvent();
 		
 		if (!mappingsInitialized()) {
 			initMappings();

@@ -3,12 +3,11 @@ package edu.usm.roberge;
 /**
  * 
  */
-public class DeathRegistration {
+public class DeathRegistrationEvent extends AbstractEvent {
+	
 	private String individualId;
 	private String fieldWorkerId;
 	private String visitId;
-	private String xml;
-	private String instanceId;
 	
 	public String getIndividualId() {
 		return individualId;
@@ -27,17 +26,5 @@ public class DeathRegistration {
 	}
 	public void setVisitId(String visitId) {
 		this.visitId = visitId;
-	}
-	public String getXml() {
-		return xml;
-	}
-	public void setXml(String xml) {
-		this.xml = xml;
-	}
-	public String getInstanceId() {
-		return instanceId;
-	}
-	public void setInstanceId(String instanceId) {
-		this.instanceId = instanceId;
 	}
 }

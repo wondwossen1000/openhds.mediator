@@ -4,15 +4,19 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.client.RestTemplate;
 
+import edu.usm.roberge.RestUrlResolver;
+
 /**
  * Request to register any errors in OpenHDS
  */
 public class AuditRequest {
 
-	private final DeathEventRequest req;
+	private final AbstractRequest req;
+	private final RestUrlResolver urlResolver;
 
-	public AuditRequest(DeathEventRequest req) {
+	public AuditRequest(AbstractRequest req, RestUrlResolver urlResolver) {
 		this.req = req;
+		this.urlResolver = urlResolver;
 	}
 
 	public void sendRequest() {
@@ -21,12 +25,12 @@ public class AuditRequest {
 		HttpHeaders headers = new HttpHeaders();
 		headers.add("Content-type", "text/xml");
 		HttpEntity<String> entity = new HttpEntity<String>(xml, headers);
-		temp.postForEntity("http://localhost:8090/openhds/api/rest/corewebservice/errors", entity, String.class);
+		temp.postForEntity(urlResolver.resolveAuditUrl(), entity, String.class);
 	}
 
 	private String generateXml() {
 		StringBuffer buf = new StringBuffer("<errors>");
-		buf.append("<messageId>" + req.getInstanceId() + "</messageId>");
+		buf.append("<messageId>" + req.getEvent().getInstanceId() + "</messageId>");
 		for(String error : req.getErrors()) {
 			buf.append("<error><errorMessage>" + error + "</errorMessage></error>");
 		}
