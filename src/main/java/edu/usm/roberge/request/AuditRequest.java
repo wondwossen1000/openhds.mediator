@@ -4,10 +4,11 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.client.RestTemplate;
 
-import edu.usm.roberge.RestUrlResolver;
+import edu.usm.roberge.util.RestUrlResolver;
 
 /**
- * Request to register any errors in OpenHDS
+ * An Audit request is sent for each event processed by the mediator
+ * The Audit request may or may not contain errors.
  */
 public class AuditRequest {
 

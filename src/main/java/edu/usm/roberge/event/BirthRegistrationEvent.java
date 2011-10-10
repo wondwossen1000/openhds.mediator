@@ -1,4 +1,4 @@
-package edu.usm.roberge;
+package edu.usm.roberge.event;
 
 public class BirthRegistrationEvent extends AbstractEvent {
 	private String motherId;

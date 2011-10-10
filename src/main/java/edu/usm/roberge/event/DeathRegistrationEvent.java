@@ -1,4 +1,4 @@
-package edu.usm.roberge;
+package edu.usm.roberge.event;
 
 /**
  * 

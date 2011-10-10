@@ -1,5 +1,9 @@
-package edu.usm.roberge;
+package edu.usm.roberge.event;
 
+/**
+ * An event that occurs in the target health application (HDS)
+ * Examples include pregnancy observation, out migration, and deaths
+ */
 public abstract class AbstractEvent {
 
 	private String xml;

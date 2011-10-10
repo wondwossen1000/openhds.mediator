@@ -1,4 +1,4 @@
-package edu.usm.roberge.controllers;
+package edu.usm.roberge.util;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,8 +21,11 @@ import org.codehaus.jackson.map.ObjectMapper;
  * }
  * 
  * As of writing, the jackson library threw exceptions when the JSON came
- * in like that. This class is meant to message that payload and process the
- * objects seperately
+ * in like that. This class is meant to massage that payload and process the
+ * objects separately.
+ * 
+ * A better solution might be to physically fix the ODK implementation, or coordinate
+ * modifying it to work with Jackson and other libraries.
  */
 public class JsonTransformer {
 

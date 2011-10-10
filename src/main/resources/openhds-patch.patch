@@ -1,0 +1,391 @@
+Index: openhds-webapp/src/main/java/org/openhds/dsl/controller/DslController.java
+===================================================================
+--- openhds-webapp/src/main/java/org/openhds/dsl/controller/DslController.java	(revision 1753)
++++ openhds-webapp/src/main/java/org/openhds/dsl/controller/DslController.java	(working copy)
+@@ -1,6 +1,8 @@
+ package org.openhds.dsl.controller;
+ 
+ import java.util.ArrayList;
++import java.util.HashMap;
++import java.util.Iterator;
+ import java.util.Map;
+ 
+ import javax.servlet.http.HttpServletRequest;
+@@ -12,6 +14,8 @@
+ import org.openhds.dsl.ValidationProtocolImpl;
+ import org.openhds.dsl.model.BindingDefinition;
+ import org.openhds.model.PrivilegeConstants;
++import org.openhds.webservice.ErrorMessage;
++import org.openhds.webservice.Errors;
+ import org.openhds.webui.util.CurrentUser;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
+@@ -72,7 +76,48 @@
+ 	public @ResponseBody ArrayList<Map<String, Object>> validation(@RequestBody ArrayList<String> jsonRequest) {
+ 		return validationImpl.handleRequest(jsonRequest);
+ 	}
++	
++	@RequestMapping(value="/validation-ws", method=RequestMethod.POST)
++	public @ResponseBody ArrayList<Map<String, Object>> validationWithWs(@RequestBody ArrayList<String> listOfIds) {
++		ArrayList<Map<String, Object>> errorsObj = new ArrayList<Map<String, Object>>();
++		for(String id : listOfIds) {
++			Errors errors = genericDao.findByProperty(Errors.class, "messageId", id);
++			if (errors == null) {
++				addUnprocessed(id, errorsObj);
++			} else {
++				addErrors(errors, errorsObj);
++			}
++		}
++		
++		return errorsObj;
++	}
+ 
++	private void addUnprocessed(String id, ArrayList<Map<String, Object>> errorsObj) {
++		Map<String, Object> obj = new HashMap<String, Object>();
++		obj.put("id", id);
++		obj.put("processed", "false");
++		errorsObj.add(obj);
++	}
++
++	private void addErrors(Errors errors, ArrayList<Map<String, Object>> errorsObj) {
++		Map<String, Object> obj = new HashMap<String, Object>();
++		obj.put("id", errors.getMessageId());
++		obj.put("processed", "true");
++		if (errors.getError().size() == 0) {
++			obj.put("valid", Boolean.valueOf("true"));
++		} else {
++			obj.put("valid", Boolean.valueOf("false"));
++			ArrayList<String> messages = new ArrayList<String>();
++			Iterator<ErrorMessage> itr = errors.getError().iterator();
++			while(itr.hasNext()) {
++				messages.add(itr.next().getErrorMessage());
++			}
++			obj.put("formFailureMessages", messages);
++			obj.put("fieldFailureMessages", new ArrayList<String>());
++		}
++		errorsObj.add(obj);
++	}
++
+ 	private boolean runBindingDefinition(BindingDefinition bd, String body) {
+ 		return bindingDefRunner.runBindingDefinition(bd, body);
+ 	}
+Index: openhds-webapp/src/main/java/org/openhds/model/Death.java
+===================================================================
+--- openhds-webapp/src/main/java/org/openhds/model/Death.java	(revision 1753)
++++ openhds-webapp/src/main/java/org/openhds/model/Death.java	(working copy)
+@@ -143,6 +143,7 @@
+         this.visitDeath = visitDeath;
+     }
+     
++    @XmlJavaTypeAdapter(value=CalendarAdapter.class)
+ 	public Calendar getRecordedDate() {
+ 		return recordedDate;
+ 	}
+Index: openhds-webapp/src/main/java/org/openhds/model/Location.java
+===================================================================
+--- openhds-webapp/src/main/java/org/openhds/model/Location.java	(revision 1753)
++++ openhds-webapp/src/main/java/org/openhds/model/Location.java	(working copy)
+@@ -57,7 +57,7 @@
+     
+ 	@OneToMany(targetEntity=Residency.class)
+ 	@JoinColumn(name = "location_uuid")
+-	public List<Residency> residencies; 
++	private List<Residency> residencies; 
+                
+ 	public String getLocationName() {
+         return locationName;
+Index: openhds-webapp/src/main/java/org/openhds/util/xml/CalendarAdapter.java
+===================================================================
+--- openhds-webapp/src/main/java/org/openhds/util/xml/CalendarAdapter.java	(revision 1753)
++++ openhds-webapp/src/main/java/org/openhds/util/xml/CalendarAdapter.java	(working copy)
+@@ -3,7 +3,10 @@
+ import java.text.DateFormat;
+ import java.text.SimpleDateFormat;
+ import java.util.Calendar;
++import java.util.Date;
++
+ import javax.xml.bind.annotation.adapters.XmlAdapter;
++
+ import org.openhds.util.Utilities;
+ 
+ /**
+@@ -15,6 +18,7 @@
+ 	
+ 	static Utilities utilities;
+ 	static String dateFormat;
++	private final String SQL_DATE_FORMAT = "yyyy-MM-dd";
+ 		
+ 	public String marshal(Calendar v) throws Exception {
+ 		DateFormat formatter = new SimpleDateFormat(dateFormat);
+@@ -22,6 +26,15 @@
+ 	}
+ 
+ 	public Calendar unmarshal(String v) throws Exception {
++		DateFormat formatter = new SimpleDateFormat(SQL_DATE_FORMAT);
++		formatter.setLenient(false);
++		try {
++			Date d = formatter.parse(v);
++			Calendar cal = Calendar.getInstance();
++			cal.setTime(d);
++			return cal;
++		} catch(Exception e) {}
++		
+ 		return utilities.parseDate(v);
+ 	}
+ 	
+Index: openhds-webapp/src/main/java/org/openhds/webservice/CoreWebServiceImpl.java
+===================================================================
+--- openhds-webapp/src/main/java/org/openhds/webservice/CoreWebServiceImpl.java	(revision 1753)
++++ openhds-webapp/src/main/java/org/openhds/webservice/CoreWebServiceImpl.java	(working copy)
+@@ -16,6 +16,7 @@
+ import org.openhds.dao.GenericDao;
+ import org.openhds.idgeneration.IdUtility;
+ import org.openhds.model.Death;
++import org.openhds.model.FieldWorker;
+ import org.openhds.model.InMigration;
+ import org.openhds.model.Individual;
+ import org.openhds.model.Location;
+@@ -27,6 +28,7 @@
+ import org.openhds.model.Outcome;
+ import org.openhds.model.PregnancyObservation;
+ import org.openhds.model.PregnancyOutcome;
++import org.openhds.model.PrivilegeConstants;
+ import org.openhds.model.ReferencedBaseEntity;
+ import org.openhds.model.ReferencedEntity;
+ import org.openhds.model.Relationship;
+@@ -234,10 +236,12 @@
+     @POST
+     @Path("/death")
+     public Response createDeath(Death death) {
+-       
++       currentUser.setProxyUser("admin", "test", new String[]{PrivilegeConstants.CREATE_ENTITY,PrivilegeConstants.VIEW_ENTITY,PrivilegeConstants.EDIT_ENTITY});
+         String individualId = death.getIndividual().getExtId();
+         String visitId = death.getVisitDeath().getExtId();
+         String fieldWorkerId = death.getCollectedBy().getExtId();
++        String houseId = death.getHouse().getExtId();
++        String householdId = death.getHousehold().getExtId();
+ 
+         HashMap<String, List<String>> idTemplates = new HashMap<String, List<String>>();
+         idTemplates.put("FieldWorker", Arrays.asList(fieldWorkerId));
+@@ -254,6 +258,8 @@
+                 death.setIndividual(individualService.findIndivById(individualId, INDIVIDUAL_ID_NOT_FOUND));
+                 death.setCollectedBy(fieldWorkerService.findFieldWorkerById(fieldWorkerId, INVALID_FIELD_WORKER_ID));
+                 death.setVisitDeath(visitService.findVisitById(visitId, INVALID_VISIT_ID));
++                death.setHouse(locationService.findLocationById(houseId, "No Location"));
++                death.setHousehold(socialGroupService.findSocialGroupById(householdId, "No Household"));
+ 
+                 deathService.evaluateDeath(death);
+                 death.setStatus(siteProperties.getDataStatusValidCode());
+@@ -454,7 +460,7 @@
+     @POST
+     @Path("/pregnancyoutcome")
+     public Response createPregnancyOutcome(PregnancyOutcome pregnancyOutcome) {
+-       
++    	currentUser.setProxyUser("admin", "test", new String[]{PrivilegeConstants.CREATE_ENTITY,PrivilegeConstants.VIEW_ENTITY,PrivilegeConstants.EDIT_ENTITY});       
+         String motherId = pregnancyOutcome.getMother().getExtId();
+         String fatherId = pregnancyOutcome.getFather().getExtId();
+         String visitId = pregnancyOutcome.getVisit().getExtId();
+@@ -621,7 +627,83 @@
+         
+         return refEntity;
+     }
++    
++    @GET
++    @Path("/individual/{indivId}")
++    public Response hasIndividualId(@PathParam("indivId")String individualId) {
++    	currentUser.setProxyUser("admin", "test", new String[] { PrivilegeConstants.VIEW_ENTITY});
++    	if (individualId == null || individualId.isEmpty()) {
++    		return Response.status(404).build();
++    	}
++    	
++    	Individual indiv = individualService.findIndivById(individualId);
++    	if (indiv == null) {
++    		return Response.status(404).build();
++    	} else {
++    		return Response.ok().build();
++    	}
++    }
+    
++    @GET
++    @Path("/visit/{visitId}")
++    public Response hasVisitId(@PathParam("visitId")String visitId) {
++    	currentUser.setProxyUser("admin", "test", new String[] { PrivilegeConstants.VIEW_ENTITY});
++    	Visit visit = genericDao.findByProperty(Visit.class, "extId", visitId);
++    	if (visit == null) {
++    		return Response.status(404).build();
++    	} else {
++    		return Response.ok().build();
++    	}
++    }
++
++    @GET
++    @Path("/fieldWorker/{fwId}")
++    public Response hasFieldWorker(@PathParam("fwId")String fwId) {
++    	currentUser.setProxyUser("admin", "test", new String[] { PrivilegeConstants.VIEW_ENTITY});
++    	FieldWorker fw = genericDao.findByProperty(FieldWorker.class, "extId", fwId);
++    	if (fw == null) {
++    		return Response.status(404).build();
++    	} else {
++    		return Response.ok().build();
++    	}
++    }
++    
++    @GET
++    @Path("/house/{houseId}")
++    public Response hasHouse(@PathParam("houseId")String houseId) {
++    	currentUser.setProxyUser("admin", "test", new String[] { PrivilegeConstants.VIEW_ENTITY});
++    	Location loc = genericDao.findByProperty(Location.class, "extId", houseId);
++    	if (loc == null) {
++    		return Response.status(404).build();
++    	} else {
++    		return Response.ok().build();
++    	}
++    }
++    
++    @GET
++    @Path("/household/{householdId}")
++    public Response hasHousehold(@PathParam("householdId")String householdId) {
++    	currentUser.setProxyUser("admin", "test", new String[] { PrivilegeConstants.VIEW_ENTITY});
++    	SocialGroup sg = genericDao.findByProperty(SocialGroup.class, "extId", householdId);
++    	if (sg == null) {
++    		return Response.status(404).build();
++    	} else {
++    		return Response.ok().build();
++    	}
++    }
++    
++    @POST
++    @Path("/errors")
++    public Response registerErrors(Errors errors) {
++    	Errors saved = genericDao.findByProperty(Errors.class, "messageId", errors.getMessageId());
++    	if (saved != null) {
++    		genericDao.delete(saved);
++    	}
++    	genericDao.create(errors);
++    	
++    	return Response.ok().build();
++    }
++    
+     /**
+      * Recursive function to perform a search on the location hierarchy when retrieving entity ids
+      * by location hierarchy level.
+Index: openhds-webapp/src/main/java/org/openhds/webservice/ErrorMessage.java
+===================================================================
+--- openhds-webapp/src/main/java/org/openhds/webservice/ErrorMessage.java	(revision 0)
++++ openhds-webapp/src/main/java/org/openhds/webservice/ErrorMessage.java	(revision 0)
+@@ -0,0 +1,38 @@
++package org.openhds.webservice;
++
++import javax.persistence.Column;
++import javax.persistence.Entity;
++import javax.persistence.GeneratedValue;
++import javax.persistence.Id;
++import javax.xml.bind.annotation.XmlRootElement;
++
++import org.hibernate.annotations.GenericGenerator;
++
++@XmlRootElement(name = "error")
++@Entity
++public class ErrorMessage {
++
++	@Id
++    @GeneratedValue(generator = "system-uuid")
++    @GenericGenerator(name = "system-uuid", strategy = "uuid")
++    @Column(length=32)
++	private String uuid;
++	
++	private String errorMessage;
++
++	public String getUuid() {
++		return uuid;
++	}
++
++	public void setUuid(String uuid) {
++		this.uuid = uuid;
++	}
++
++	public String getErrorMessage() {
++		return errorMessage;
++	}
++
++	public void setErrorMessage(String errorMessage) {
++		this.errorMessage = errorMessage;
++	}
++}
+Index: openhds-webapp/src/main/java/org/openhds/webservice/Errors.java
+===================================================================
+--- openhds-webapp/src/main/java/org/openhds/webservice/Errors.java	(revision 0)
++++ openhds-webapp/src/main/java/org/openhds/webservice/Errors.java	(revision 0)
+@@ -0,0 +1,59 @@
++package org.openhds.webservice;
++
++import java.util.ArrayList;
++import java.util.Collection;
++
++import javax.persistence.Column;
++import javax.persistence.Entity;
++import javax.persistence.GeneratedValue;
++import javax.persistence.Id;
++import javax.persistence.OneToMany;
++import javax.xml.bind.annotation.XmlRootElement;
++
++import org.hibernate.annotations.Cascade;
++import org.hibernate.annotations.CascadeType;
++import org.hibernate.annotations.GenericGenerator;
++
++@XmlRootElement(name = "errors")
++@Entity
++public class Errors {
++	
++	@Id
++    @GeneratedValue(generator = "system-uuid")
++    @GenericGenerator(name = "system-uuid", strategy = "uuid")
++    @Column(length=32)
++	private String uuid;
++	
++	String messageId;
++	
++	@OneToMany
++	@Cascade({CascadeType.ALL})
++	Collection<ErrorMessage> error = new ArrayList<ErrorMessage>();
++
++	public String getUuid() {
++		return uuid;
++	}
++
++	public void setUuid(String uuid) {
++		this.uuid = uuid;
++	}
++
++	public String getMessageId() {
++		return messageId;
++	}
++
++	public void setMessageId(String messageId) {
++		this.messageId = messageId;
++	}
++
++	public Collection<ErrorMessage> getError() {
++		return error;
++	}
++
++	public void setError(Collection<ErrorMessage> error) {
++		this.error = error;
++	}
++
++
++
++}
+Index: openhds-webapp/src/main/resources/META-INF/spring/applicationContext.xml
+===================================================================
+--- openhds-webapp/src/main/resources/META-INF/spring/applicationContext.xml	(revision 1753)
++++ openhds-webapp/src/main/resources/META-INF/spring/applicationContext.xml	(working copy)
+@@ -115,6 +115,8 @@
+                 <value>org.openhds.dsl.model.BindingDefinition</value>
+                 <value>org.openhds.dsl.model.XformInstance</value>
+                 <value>org.openhds.dsl.model.ConfigurationProperty</value>
++                <value>org.openhds.webservice.Errors</value>
++                <value>org.openhds.webservice.ErrorMessage</value>
+             </list>
+         </property>
+         <property name="hibernateProperties">

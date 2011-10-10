@@ -1,18 +1,14 @@
 package edu.usm.roberge.converters;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
-import edu.usm.roberge.DeathRegistrationEvent;
+import edu.usm.roberge.event.DeathRegistrationEvent;
 
 /**
  * Converts a JSON encoded Death registration event from ODK
  */
-public class DeathConverter {
+public class DeathConverter extends AbstractConverter<DeathRegistrationEvent> {
 
-	private final Map<String, String> mappings = new HashMap<String, String>();
-	
 	public DeathRegistrationEvent convertToXml(Map<String, String> jsonObject) {
 		DeathRegistrationEvent deathRegistration = new DeathRegistrationEvent();
 		
@@ -22,11 +18,7 @@ public class DeathConverter {
 		StringBuffer buf = new StringBuffer();
 		buf.append("<death>");
 		
-		for(Entry<String, String> entry : jsonObject.entrySet()) {
-			String xml = mappings.get(entry.getKey());
-			String formatted = String.format(xml, entry.getValue());
-			buf.append(formatted);
-		}
+		extractValuesWithMapping(jsonObject, buf);
 		
 		buf.append("</death>");
 		deathRegistration.setXml(buf.toString());
@@ -38,12 +30,9 @@ public class DeathConverter {
 		
 		return deathRegistration;
 	}
-	
-	private boolean mappingsInitialized() {
-		return mappings.size() != 0;
-	}
 
-	private void initMappings() {
+	@Override
+	protected void initMappings() {
 		mappings.put("meta:instanceId", "<instanceId>%s</instanceId>");
 		mappings.put("basicInformation:visitId", "<visitDeath><extId>%s</extId></visitDeath>");
 		mappings.put("basicInformation:fieldWorker", "<collectedBy><extId>%s</extId></collectedBy>");
@@ -56,6 +45,6 @@ public class DeathConverter {
 		mappings.put("basicInformation:deceasedName", "<deceasedName>%s</deceasedName>");
 		mappings.put("basicInformation:sex", "<sex>%s</sex>");
 		mappings.put("basicInformation:placeOfDeath", "<deathPlace>%s</deathPlace>");
-		mappings.put("sourceOfInformation:reportedBy", "<reportedBy>%s</reportedBy>");
+		mappings.put("sourceOfInformation:reportedBy", "<reportedBy>%s</reportedBy>");		
 	}
 }

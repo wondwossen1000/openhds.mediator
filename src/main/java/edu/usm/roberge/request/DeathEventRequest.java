@@ -1,8 +1,8 @@
 package edu.usm.roberge.request;
 
-import edu.usm.roberge.AbstractEvent;
-import edu.usm.roberge.DeathRegistrationEvent;
-import edu.usm.roberge.RestUrlResolver;
+import edu.usm.roberge.event.AbstractEvent;
+import edu.usm.roberge.event.DeathRegistrationEvent;
+import edu.usm.roberge.util.RestUrlResolver;
 
 public class DeathEventRequest extends AbstractRequest {
 
@@ -19,7 +19,7 @@ public class DeathEventRequest extends AbstractRequest {
 	}
 	
 	@Override
-	protected void onBeforeSendRequest() {
+	protected void validateFieldsBeforeRequest() {
 		validateIndividualId(event.getIndividualId(), "Individual Id could not be validated");
 		validateFieldWorkerId(event.getFieldWorkerId());
 		validateVisitId(event.getVisitId());		
